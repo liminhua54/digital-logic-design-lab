@@ -1,0 +1,157 @@
+const int rowPins[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+const int colPins[8] = {10, 11, 12, A0, A1, A2, A3, A4};
+
+int snakeX[64];
+int snakeY[64];
+int snakeLength = 1;
+
+int dirX = 0;
+int dirY = -1;
+
+int foodX = 2;
+int foodY = 2;
+
+bool gameOver = false;
+
+unsigned long lastMoveTime = 0;
+const unsigned long moveInterval = 400;
+
+void setup() {
+  for (int i = 0; i < 8; i++) {
+    pinMode(rowPins[i], OUTPUT);
+    pinMode(colPins[i], OUTPUT);
+  }
+  Serial.begin(9600);
+  resetGame();
+}
+
+void loop() {
+  handleSerial();
+
+  if (!gameOver && millis() - lastMoveTime > moveInterval) {
+    lastMoveTime = millis();
+    moveSnake();
+    checkCollision();
+    checkFood();
+  }
+
+  if (!gameOver) {
+    displayGame();
+  } else {
+    displayGameOverBlink();
+  }
+}
+
+void handleSerial() {
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    switch (cmd) {
+      case 'U': if (dirY != 1) { dirX = 0; dirY = -1; } break;
+      case 'D': if (dirY != -1) { dirX = 0; dirY = 1; } break;
+      case 'L': if (dirX != 1) { dirX = -1; dirY = 0; } break;
+      case 'R': if (dirX != -1) { dirX = 1; dirY = 0; } break;
+      case 'S': resetGame(); clearDisplay(); break;
+    }
+  }
+}
+
+void moveSnake() {
+  for (int i = snakeLength - 1; i > 0; i--) {
+    snakeX[i] = snakeX[i - 1];
+    snakeY[i] = snakeY[i - 1];
+  }
+  snakeX[0] += dirX;
+  snakeY[0] += dirY;
+}
+
+void checkCollision() {
+  if (snakeX[0] < 0 || snakeX[0] > 7 || snakeY[0] < 0 || snakeY[0] > 7) {
+    gameOver = true;
+    Serial.println("GAMEOVER");
+  }
+  for (int i = 1; i < snakeLength; i++) {
+    if (snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) {
+      gameOver = true;
+      Serial.println("GAMEOVER");
+    }
+  }
+}
+
+void checkFood() {
+  if (snakeX[0] == foodX && snakeY[0] == foodY) {
+    if (snakeLength < 64) snakeLength++;
+    generateFood();
+    Serial.print("SCORE:");
+    Serial.println(snakeLength - 1);
+  }
+}
+
+void generateFood() {
+  bool valid = false;
+  while (!valid) {
+    foodX = random(0, 8);
+    foodY = random(0, 8);
+    valid = true;
+    for (int i = 0; i < snakeLength; i++) {
+      if (snakeX[i] == foodX && snakeY[i] == foodY) {
+        valid = false;
+        break;
+      }
+    }
+  }
+}
+
+void displayGame() {
+  for (int row = 0; row < 8; row++) {
+    clearDisplay();
+    int actualRow = 7 - row;
+
+    for (int i = 0; i < snakeLength; i++) {
+      if (snakeY[i] == actualRow) {
+        digitalWrite(rowPins[row], LOW);
+        digitalWrite(colPins[snakeX[i]], HIGH);
+      }
+    }
+
+    if (foodY == actualRow) {
+      digitalWrite(rowPins[row], LOW);
+      digitalWrite(colPins[foodX], HIGH);
+    }
+
+    delay(2);
+  }
+}
+
+void displayGameOverBlink() {
+  static bool on = false;
+  static unsigned long lastBlink = 0;
+
+  if (millis() - lastBlink > 300) {
+    lastBlink = millis();
+    on = !on;
+  }
+
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(rowPins[i], on ? LOW : HIGH);
+    digitalWrite(colPins[i], on ? HIGH : LOW);
+  }
+}
+
+void clearDisplay() {
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(rowPins[i], HIGH);
+    digitalWrite(colPins[i], LOW);
+  }
+}
+
+void resetGame() {
+  snakeLength = 1;
+  snakeX[0] = 4;
+  snakeY[0] = 4;
+  dirX = 0;
+  dirY = -1;
+  gameOver = false;
+  generateFood();
+  clearDisplay();
+  Serial.println("RESET");
+}
