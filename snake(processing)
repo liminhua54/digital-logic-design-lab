@@ -1,0 +1,55 @@
+import processing.serial.*;
+
+Serial myPort;
+String status = "Ready";
+int score = 0;
+
+void setup() {
+  size(300, 200);
+  println(Serial.list());
+  myPort = new Serial(this, "COM5", 9600); 
+  textAlign(CENTER, CENTER);
+  textSize(24);
+}
+
+void draw() {
+  background(0);
+  fill(255);
+  text(status, width / 2, height / 2 - 30);
+  text("Score: " + score, width / 2, height / 2 + 20);
+  text("WASD to move, R to restart", width / 2, height / 2 + 60);
+}
+
+void keyPressed() {
+  if (key == 'w' || key == 'W') {
+    myPort.write('U');  // Up
+  } else if (key == 's' || key == 'S') {
+    myPort.write('D');  // Down
+  } else if (key == 'a' || key == 'A') {
+    myPort.write('L');  // Left
+  } else if (key == 'd' || key == 'D') {
+    myPort.write('R');  // Right
+  } else if (key == 'r' || key == 'R') {
+    myPort.write('S');  // Restart
+    score = 0;
+    status = "Restarted";
+  }
+}
+
+void serialEvent(Serial myPort) {
+  String inString = myPort.readStringUntil('\n');
+  if (inString != null) {
+    inString = trim(inString);
+    if (inString.equals("GAMEOVER")) {
+      status = "Game Over!";
+    } else if (inString.equals("RESET")) {
+      status = "Game Started";
+      score = 0;
+    } else if (inString.startsWith("SCORE:")) {
+      String[] parts = split(inString, ":");
+      if (parts.length == 2) {
+        score = int(parts[1]);
+      }
+    }
+  }
+}
